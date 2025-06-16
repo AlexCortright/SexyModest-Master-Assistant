@@ -1,13 +1,12 @@
 "use client"
 
-import type React from "react"
-
-import { useChat } from "ai/react"
 import { Send, Bot, User } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 export default function ChatInterface() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat()
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; id: string }[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
@@ -18,12 +17,10 @@ export default function ChatInterface() {
     }
   }
 
-  // Enhanced auto-scroll effect
   useEffect(() => {
     scrollToBottom(true)
   }, [messages])
 
-  // Track if user is near bottom to determine auto-scroll behavior
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget
     const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100
@@ -31,26 +28,21 @@ export default function ChatInterface() {
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    // On desktop: Enter submits, Shift+Enter or Cmd+Enter adds new line
-    // On mobile: Enter adds new line, Send button submits
     const isMobile = window.innerWidth < 768
     const isDesktop = !isMobile
 
     if (e.key === "Enter") {
       if (isDesktop && !e.shiftKey && !e.metaKey) {
-        // Desktop: Enter submits (unless Shift or Cmd is held)
         e.preventDefault()
         if (input.trim()) {
-          handleSubmit(e as any)
+          handleSubmit()
         }
       } else if (isMobile && (e.metaKey || e.ctrlKey)) {
-        // Mobile: Cmd+Enter or Ctrl+Enter submits
         e.preventDefault()
         if (input.trim()) {
-          handleSubmit(e as any)
+          handleSubmit()
         }
       }
-      // Otherwise, allow default behavior (new line)
     }
   }
 
@@ -66,14 +58,47 @@ export default function ChatInterface() {
     adjustTextareaHeight()
   }, [input])
 
+  const handleSubmit = async () => {
+    if (!input.trim()) return
+
+    const userMessage = {
+      id: Date.now().toString(),
+      role: "user" as const,
+      content: input.trim(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+    setInput("")
+
+    try {
+      const res = await fetch("/api/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: userMessage.content }),
+      })
+
+      const data = await res.json()
+      const assistantMessage = {
+        id: Date.now().toString() + "-ai",
+        role: "assistant" as const,
+        content: data.reply,
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      console.error("Error calling assistant:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
         <h1 className="text-lg font-semibold text-gray-900 text-center">SexyModest Assistant</h1>
       </header>
 
-      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" onScroll={handleScroll}>
         {messages.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
@@ -137,15 +162,20 @@ export default function ChatInterface() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="bg-white border-t border-gray-200 p-4">
-        <form onSubmit={handleSubmit} className="flex items-end space-x-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSubmit()
+          }}
+          className="flex items-end space-x-3"
+        >
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
               value={input}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
               placeholder="Type your message..."
               className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-h-[48px] max-h-[120px]"
               rows={1}
