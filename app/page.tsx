@@ -68,6 +68,8 @@ export default function ChatInterface() {
     setInput("")
 
     try {
+      console.log("🟡 Sending init request...")
+
       const initRes = await fetch("/api/message/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,6 +77,7 @@ export default function ChatInterface() {
       })
 
       const { thread_id, run_id } = await initRes.json()
+      console.log("✅ Init response:", { thread_id, run_id })
 
       let status = "queued"
       let reply = ""
@@ -94,6 +97,8 @@ export default function ChatInterface() {
         const checkData = await checkRes.json()
         status = checkData.status
         reply = checkData.reply || ""
+
+        console.log(`🔁 Polling attempt ${retries} → status:`, status)
 
         if (status === "completed") break
       }
