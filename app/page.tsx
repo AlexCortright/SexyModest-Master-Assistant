@@ -78,9 +78,12 @@ export default function ChatInterface() {
 
       let status = "queued"
       let reply = ""
+      let retries = 0
+      const maxRetries = 30
 
-      while (status !== "completed" && status !== "failed") {
+      while (status !== "completed" && status !== "failed" && retries < maxRetries) {
         await new Promise((res) => setTimeout(res, 2000))
+        retries++
 
         const checkRes = await fetch("/api/message/status", {
           method: "POST",
@@ -91,6 +94,8 @@ export default function ChatInterface() {
         const checkData = await checkRes.json()
         status = checkData.status
         reply = checkData.reply || ""
+
+        if (status === "completed") break
       }
 
       const assistantMessage = {
