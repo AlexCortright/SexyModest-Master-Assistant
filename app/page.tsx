@@ -74,7 +74,15 @@ export default function ChatInterface() {
         body: JSON.stringify({ prompt: userMessage.content }),
       })
 
-      const data = await res.json()
+      let data
+      try {
+        data = await res.json()
+      } catch (err) {
+        const text = await res.text()
+        console.error("❌ Invalid JSON response:", text)
+        throw new Error("Non-JSON response from /api/message")
+      }
+
       console.log("📦 Response from /api/message:", data)
 
       if (!data.reply) {
@@ -83,7 +91,7 @@ export default function ChatInterface() {
           {
             id: Date.now().toString() + "-ai",
             role: "assistant",
-            content: "⚠️ No reply received. Check backend or file/assistant ID setup.",
+            content: "⚠️ No reply received. Check backend config or Assistant ID.",
           },
         ])
       } else {
@@ -96,6 +104,14 @@ export default function ChatInterface() {
       }
     } catch (err) {
       console.error("Error calling assistant:", err)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + "-ai",
+          role: "assistant",
+          content: "⚠️ Error reaching the assistant. Please try again shortly.",
+        },
+      ])
     } finally {
       setIsLoading(false)
     }
@@ -153,8 +169,14 @@ export default function ChatInterface() {
               <div className="px-4 py-2 rounded-2xl bg-white border border-gray-200 rounded-bl-md">
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
                 </div>
               </div>
             </div>
