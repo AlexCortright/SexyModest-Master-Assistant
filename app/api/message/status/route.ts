@@ -2,49 +2,42 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt } = await req.json()
+    const { thread_id, run_id } = await req.json()
 
-    // 1. Create a new thread
-    const threadRes = await fetch("https://api.openai.com/v1/threads", {
-      method: "POST",
+    // Fetch run status from OpenAI
+    const runRes = await fetch(`https://api.openai.com/v1/threads/${thread_id}/runs/${run_id}`, {
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
       },
     })
 
-    const { id: thread_id } = await threadRes.json()
+    const runData = await runRes.json()
+    const status = runData?.status || "unknown"
+    console.log("📦 run status:", status)
 
-    // 2. Add the user's message to the thread
-    await fetch(`https://api.openai.com/v1/threads/${thread_id}/messages`, {
-      method: "POST",
+    // If run is not done, return the current status
+    if (status !== "completed") {
+      return NextResponse.json({ status })
+    }
+
+    // Fetch messages when completed
+    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${thread_id}/messages`, {
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        role: "user",
-        content: prompt,
-      }),
     })
 
-    // 3. Start the assistant run (no file_ids needed!)
-    const runRes = await fetch(`https://api.openai.com/v1/threads/${thread_id}/runs`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        assistant_id: process.env.OPENAI_ASSISTANT_ID,
-      }),
+    const messagesData = await messagesRes.json()
+    console.log("💬 messagesData:", messagesData)
+
+    const reply = messagesData.data?.[0]?.content?.[0]?.text?.value || "⚠️ No reply found."
+
+    return NextResponse.json({
+      status: "completed",
+      reply,
     })
-
-    const { id: run_id } = await runRes.json()
-
-    return NextResponse.json({ thread_id, run_id })
   } catch (error) {
-    console.error("❌ Init route error:", error)
-    return NextResponse.json({ error: "Assistant init failed" }, { status: 500 })
+    console.error("❌ Status route error:", error)
+    return NextResponse.json({ status: "error", reply: null }, { status: 500 })
   }
 }
