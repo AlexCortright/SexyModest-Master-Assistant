@@ -4,16 +4,17 @@ export async function POST(req: NextRequest) {
   try {
     const { thread_id, run_id } = await req.json()
 
-    const runCheck = await fetch(`https://api.openai.com/v1/threads/${thread_id}/runs/${run_id}`, {
+    const runRes = await fetch(`https://api.openai.com/v1/threads/${thread_id}/runs/${run_id}`, {
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
     })
 
-    const runData = await runCheck.json()
+    const runData = await runRes.json()
+    const status = runData.status || "unknown"
 
-    if (runData.status !== "completed") {
-      return NextResponse.json({ status: runData.status })
+    if (status !== "completed") {
+      return NextResponse.json({ status })
     }
 
     const messagesRes = await fetch(`https://api.openai.com/v1/threads/${thread_id}/messages`, {
