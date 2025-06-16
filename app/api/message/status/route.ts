@@ -23,11 +23,14 @@ export async function POST(req: NextRequest) {
     })
 
     const messagesData = await messagesRes.json()
-    const reply = messagesData.data?.[0]?.content?.[0]?.text?.value || "No reply found."
+    const reply = messagesData.data?.[0]?.content?.[0]?.text?.value || null
 
-    return NextResponse.json({ status: "completed", reply })
+    return NextResponse.json({
+      status: "completed",
+      reply,
+    })
   } catch (error) {
-    console.error("Status error:", error)
-    return NextResponse.json({ error: "Status check failed" }, { status: 500 })
+    console.error("❌ Status route error:", error)
+    return NextResponse.json({ status: "error", reply: null }, { status: 500 })
   }
 }
