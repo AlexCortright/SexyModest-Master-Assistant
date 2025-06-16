@@ -57,65 +57,69 @@ export default function ChatInterface() {
   const handleSubmit = async () => {
     if (!input.trim()) return
 
-    const userMessage = {
-      id: Date.now().toString(),
-      role: "user" as const,
-      content: input.trim(),
-    }
+   const handleSubmit = async () => {
+  if (!input.trim()) return
 
-    setMessages((prev) => [...prev, userMessage])
-    setIsLoading(true)
-    setInput("")
+  const userMessage = {
+    id: Date.now().toString(),
+    role: "user" as const,
+    content: input.trim(),
+  }
 
-    try {
-      const res = await fetch("/api/message", {
+  setMessages((prev) => [...prev, userMessage])
+  setIsLoading(true)
+  setInput("")
+
+  try {
+    // 1. Start the assistant thread + run
+    const initRes = await fetch("/api/message/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: userMessage.content }),
+    })
+
+    const { thread_id, run_id } = await initRes.json()
+
+    // 2. Poll for assistant reply
+    let status = "queued"
+    let reply = ""
+
+    while (status !== "completed" && status !== "failed") {
+      await new Promise((res) => setTimeout(res, 2000))
+
+      const checkRes = await fetch("/api/message/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userMessage.content }),
+        body: JSON.stringify({ thread_id, run_id }),
       })
 
-      let data
-      try {
-        data = await res.json()
-      } catch (err) {
-        const text = await res.text()
-        console.error("❌ Invalid JSON response:", text)
-        throw new Error("Non-JSON response from /api/message")
-      }
-
-      console.log("📦 Response from /api/message:", data)
-
-      if (!data.reply) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString() + "-ai",
-            role: "assistant",
-            content: "⚠️ No reply received. Check backend config or Assistant ID.",
-          },
-        ])
-      } else {
-        const assistantMessage = {
-          id: Date.now().toString() + "-ai",
-          role: "assistant" as const,
-          content: data.reply,
-        }
-        setMessages((prev) => [...prev, assistantMessage])
-      }
-    } catch (err) {
-      console.error("Error calling assistant:", err)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString() + "-ai",
-          role: "assistant",
-          content: "⚠️ Error reaching the assistant. Please try again shortly.",
-        },
-      ])
-    } finally {
-      setIsLoading(false)
+      const checkData = await checkRes.json()
+      status = checkData.status
+      reply = checkData.reply || ""
     }
+
+    const assistantMessage = {
+      id: Date.now().toString() + "-ai",
+      role: "assistant" as const,
+      content: reply || "⚠️ No reply found.",
+    }
+
+    setMessages((prev) => [...prev, assistantMessage])
+  } catch (err) {
+    console.error("❌ Assistant error:", err)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString() + "-ai",
+        role: "assistant",
+        content: "⚠️ Something went wrong. Try again.",
+      },
+    ])
+  } finally {
+    setIsLoading(false)
   }
+}
+
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
