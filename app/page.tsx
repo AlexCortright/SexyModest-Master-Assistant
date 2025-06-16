@@ -57,69 +57,63 @@ export default function ChatInterface() {
   const handleSubmit = async () => {
     if (!input.trim()) return
 
-   const handleSubmit = async () => {
-  if (!input.trim()) return
+    const userMessage = {
+      id: Date.now().toString(),
+      role: "user" as const,
+      content: input.trim(),
+    }
 
-  const userMessage = {
-    id: Date.now().toString(),
-    role: "user" as const,
-    content: input.trim(),
-  }
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+    setInput("")
 
-  setMessages((prev) => [...prev, userMessage])
-  setIsLoading(true)
-  setInput("")
-
-  try {
-    // 1. Start the assistant thread + run
-    const initRes = await fetch("/api/message/init", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: userMessage.content }),
-    })
-
-    const { thread_id, run_id } = await initRes.json()
-
-    // 2. Poll for assistant reply
-    let status = "queued"
-    let reply = ""
-
-    while (status !== "completed" && status !== "failed") {
-      await new Promise((res) => setTimeout(res, 2000))
-
-      const checkRes = await fetch("/api/message/status", {
+    try {
+      const initRes = await fetch("/api/message/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thread_id, run_id }),
+        body: JSON.stringify({ prompt: userMessage.content }),
       })
 
-      const checkData = await checkRes.json()
-      status = checkData.status
-      reply = checkData.reply || ""
-    }
+      const { thread_id, run_id } = await initRes.json()
 
-    const assistantMessage = {
-      id: Date.now().toString() + "-ai",
-      role: "assistant" as const,
-      content: reply || "⚠️ No reply found.",
-    }
+      let status = "queued"
+      let reply = ""
 
-    setMessages((prev) => [...prev, assistantMessage])
-  } catch (err) {
-    console.error("❌ Assistant error:", err)
-    setMessages((prev) => [
-      ...prev,
-      {
+      while (status !== "completed" && status !== "failed") {
+        await new Promise((res) => setTimeout(res, 2000))
+
+        const checkRes = await fetch("/api/message/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ thread_id, run_id }),
+        })
+
+        const checkData = await checkRes.json()
+        status = checkData.status
+        reply = checkData.reply || ""
+      }
+
+      const assistantMessage = {
         id: Date.now().toString() + "-ai",
-        role: "assistant",
-        content: "⚠️ Something went wrong. Try again.",
-      },
-    ])
-  } finally {
-    setIsLoading(false)
-  }
-}
+        role: "assistant" as const,
+        content: reply || "⚠️ No reply found.",
+      }
 
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      console.error("❌ Assistant error:", err)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + "-ai",
+          role: "assistant",
+          content: "⚠️ Something went wrong. Try again.",
+        },
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -173,14 +167,8 @@ export default function ChatInterface() {
               <div className="px-4 py-2 rounded-2xl bg-white border border-gray-200 rounded-bl-md">
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                 </div>
               </div>
             </div>
@@ -218,7 +206,7 @@ export default function ChatInterface() {
             <Send className="w-5 h-5" />
           </button>
         </form>
-            </div>
+      </div>
     </div>
   )
-} 
+}
