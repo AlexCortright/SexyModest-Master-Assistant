@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         assistant_id: process.env.OPENAI_ASSISTANT_ID,
-        file_ids: [process.env.OPENAI_FILE_ID],
       }),
     })
 
